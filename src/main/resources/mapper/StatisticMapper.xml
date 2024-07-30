@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.demo.comentoStatistic.dao.StatisticMapper">
+
+    <select id="selectYearLogin" parameterType="string" resultType="YearCountDto">
+        select concat('20', #{year}) as year, count(*) as totCnt
+        from statistic.requestInfo ri
+        where left(ri.createDate, 2) = #{year};
+    </select>
+
+    <select id="selectYearMonthLogin" parameterType="string" resultType="YearMonthCountDto">
+        select concat('20', #{yearMonth}) as yearMonth, count(*) as totCnt
+        from statistic.requestInfo ri
+        where left(ri.createDate, 4) = #{yearMonth};
+    </select>
+
+    <!-- 월별 접속자 수 -->
+    <select id="selectYearMonthVisitors" parameterType="string" resultType="YearMonthCountDto">
+        select concat('20', #{yearMonth}) as yearMonth, count(distinct userID) as totCnt
+        from statistic5.requestInfo ri
+        where left(ri.createDate, 4) = #{yearMonth};
+    </select>
+
+    <!-- 일자별 접속자 수 -->
+    <select id="selectYearMonthDayVisitors" parameterType="string" resultType="YearMonthDayCountDto">
+        select concat('20', #{yearMonthDay}) as yearMonthDay, count(distinct userID) as totCnt
+        from statistic5.requestInfo ri
+        where left(ri.createDate, 6) = #{yearMonthDay};
+    </select>
+
+    <!-- 평균 하루 로그인 수 -->
+    <select id="selectAvgDayLogins" parameterType="string" resultType="AvgDayLoginDto">
+        SELECT COALESCE(AVG(daily_count), 0) AS avgDayCnt
+        FROM (
+        SELECT COUNT(*) AS daily_count
+        FROM statistic5.requestInfo ri
+        WHERE LEFT(ri.createDate, 4) = #{yearMonth}
+        GROUP BY LEFT(ri.createDate, 8)  -- 일 단위로 그룹화
+        ) AS daily_counts;
+    </select>
+
+    <!-- 휴일을 제외한 로그인 수 -->
+    <select id="selectNonHolidayLogins" parameterType="string" resultType="NonHolidayDto">
+        SELECT COUNT(*) AS totCnt
+        FROM statistic5.requestInfo ri
+        WHERE LEFT(ri.createDate, 4) = #{yearMonth}
+        AND WEEKDAY(STR_TO_DATE(CONCAT('20', LEFT(ri.createDate, 6), SUBSTR(ri.createDate, 7, 2)), '%Y%m%d')) NOT IN (5, 6)  -- 주말 제외 (토요일=5, 일요일=6)
+        AND SUBSTR(ri.createDate, 5, 4) NOT IN (SELECT holidayDate FROM statistic5.holidayInfo);  -- 공휴일 제외 ('MM-DD' 형식으로 비교)
+    </select>
+
+    <!-- 부서별 월별 로그인 수 -->
+    <select id="selectDepartmentMonthLogins" parameterType="string" resultType="DepartmentMonthLoginDto">
+        SELECT
+        u.HR_ORGAN AS departmentName,
+        CONCAT('20', LEFT(ri.createDate, 4)) AS yearMonth,
+        COUNT(*) AS totCnt
+        FROM
+        statistic5.requestInfo ri
+        JOIN
+        statistic5.user u ON ri.userID = u.userID
+        WHERE
+        LEFT(ri.createDate, 4) = #{yearMonth}
+        GROUP BY
+        u.HR_ORGAN, LEFT(ri.createDate, 4);
+    </select>
+</mapper>
